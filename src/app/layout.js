@@ -5,6 +5,7 @@ import "./css/animate.min.css";
 import "./globals.css";
 import Nav from "./nav.js";
 import Link from "next/link";
+import { AuthProvider } from "@/lib/AuthContext"
 
 export const metadata = {
   title: "Python 9ja",
@@ -238,9 +239,11 @@ export default function RootLayout({ children }) {
         <script src="/tailwind.cdn.js"></script>
       </head>
       <body>
+      <AuthProvider>
         <Nav />
         {children}
         <Footer />
+        </AuthProvider>
       </body>
     </html>
   );

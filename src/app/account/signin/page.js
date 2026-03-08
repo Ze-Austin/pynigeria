@@ -1,75 +1,83 @@
 "use client";
 import React, { useState } from "react";
 import Link from "next/link";
-import { login, getSocialAuthUrl } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import { login, loginTOTP, getSocialAuthUrl } from "@/lib/api";
+import { useAuth } from "@/lib/AuthContext";
 
 export default function SignInPage() {
-  const [step, setStep]       = useState(0); // 0 = email, 1 = otp
-  const [form, setForm]       = useState({ email: "", otp_code: "" });
+  const router = useRouter();
+
+  // step 0 = email + password, step 1 = TOTP (only if user has 2FA enabled)
+  const [step, setStep] = useState(0);
+  const [form, setForm] = useState({ email: "", password: "", otp_token: "" });
   const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState("");
-  const [warning, setWarning] = useState(""); // unverified email warning
+  const [error, setError] = useState("");
+  const [showPass, setShowPass] = useState(false);
+  const { login: loginUser } = useAuth();
+  const { setSession } = useAuth();
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     setError("");
   };
 
-  // Step 0 — validate email and move to OTP step
-  const handleEmailSubmit = (e) => {
-    e.preventDefault();
-    if (!form.email) { setError("Email is required"); return; }
-    if (!/\S+@\S+\.\S+/.test(form.email)) { setError("Enter a valid email"); return; }
-    setError("");
-    setStep(1);
-  };
+  // ── Step 0: email + password ────────────────────────────────────────────
+  const handlePasswordSubmit = async (e) => {
+  e.preventDefault();
+  if (!form.email)    { setError("Email is required"); return; }
+  if (!form.password) { setError("Password is required"); return; }
 
-  // Step 1 — submit email + otp_code to backend
-  const handleOtpSubmit = async (e) => {
-    e.preventDefault();
-    if (!form.otp_code) { setError("OTP code is required"); return; }
+  setLoading(true);
+  setError("");
 
-    setLoading(true);
-    setError("");
-    setWarning("");
+  try {
+    const res  = await login({ email: form.email, password: form.password });
+    const data = res?.data;
 
-    try {
-      const data = await login({ email: form.email, otp_code: form.otp_code });
-
-      // Support multiple token response shapes
-      const access  = data?.data?.access  || data?.access;
-      const refresh = data?.data?.refresh || data?.refresh;
-      const user    = data?.data;
-
-      if (access)  localStorage.setItem("access",  access);
-      if (refresh) localStorage.setItem("refresh", refresh);
-      if (user && typeof user === "object") {
-        localStorage.setItem("user", JSON.stringify(user));
-      }
-
-      // Warn if email not verified but still allow in
-      if (user?.is_email_verified === false) {
-        setWarning("Your email is not verified. Some features may be limited.");
-      }
-
-      window.location.href = "/dashboard";
-    } catch (err) {
-      const res = err?.response?.data;
-      const msg =
-        res?.detail               ||
-        res?.error                ||
-        res?.non_field_errors?.[0]||
-        Object.values(res || {})?.[0]?.[0] ||
-        "Login failed. Please check your credentials.";
-      setError(typeof msg === "object" ? JSON.stringify(msg) : msg);
-    } finally {
-      setLoading(false);
+    if (data?.requires_2fa) {
+      // 2FA enabled — don't persist anything yet, move to TOTP step
+      setStep(1);
+      return;
     }
-  };
 
-  const handleSocialLogin = (provider) => {
-    window.location.href = getSocialAuthUrl(provider);
-  };
+    // No 2FA — persist session and redirect
+    setSession(data);
+    router.push("/dashboard");
+  } catch (err) {
+    setError(extractError(err));
+  } finally {
+    setLoading(false);
+  }
+};
+
+// ── Step 1: TOTP ──────────────────────────────────────────────────────────────
+const handleTOTPSubmit = async (e) => {
+  e.preventDefault();
+  if (!form.otp_token)              { setError("Please enter the 6-digit code"); return; }
+  if (form.otp_token.length !== 6)  { setError("Code must be exactly 6 digits"); return; }
+
+  setLoading(true);
+  setError("");
+
+  try {
+    const res = await loginTOTP({ email: form.email, otp_token: form.otp_token });
+    setSession(res?.data);
+    router.push("/dashboard");
+  } catch (err) {
+    setError(extractError(err));
+  } finally {
+    setLoading(false);
+  }
+};
+
+// ── Social login ──────────────────────────────────────────────────────────────
+// Social login redirects away from the page entirely — the OAuth callback
+// handles the session. No changes needed here.
+const handleSocialLogin = (provider) => {
+  window.location.href = getSocialAuthUrl(provider);
+};
+  
 
   return (
     <div className="min-h-screen flex font-sans">
@@ -126,7 +134,7 @@ export default function SignInPage() {
             </span>
           </Link>
 
-          {/* ── STEP 0: Email ── */}
+          {/* ── STEP 0: Email + Password ── */}
           {step === 0 && (
             <div className="slide-in">
               <h1 className="font-display text-3xl text-gray-900 mb-1">Sign in</h1>
@@ -164,30 +172,48 @@ export default function SignInPage() {
                 <div className="flex-1 h-px bg-gray-100" />
               </div>
 
-              {error && (
-                <div className="error-shake mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm flex items-start gap-2">
-                  <span className="mt-0.5">⚠️</span><span>{error}</span>
-                </div>
-              )}
+              {error && <ErrorBox message={error} />}
 
-              <form onSubmit={handleEmailSubmit} className="space-y-4">
+              <form onSubmit={handlePasswordSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Email address</label>
                   <input
                     type="email" name="email" value={form.email}
-                    onChange={handleChange} required placeholder="you@example.com"
+                    onChange={handleChange} placeholder="you@example.com"
                     className="input-focus w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 placeholder-gray-400 transition-all"
                   />
                 </div>
-                <button type="submit"
-                        className="btn-green w-full py-3.5 rounded-xl text-white font-semibold text-sm">
-                  Continue →
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-sm font-medium text-gray-700">Password</label>
+                    <Link href="/account/forgot-password"
+                          className="text-xs text-emerald-600 hover:underline font-medium">
+                      Forgot password?
+                    </Link>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showPass ? "text" : "password"} name="password" value={form.password}
+                      onChange={handleChange} placeholder="Your password"
+                      className="input-focus w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 placeholder-gray-400 pr-11 transition-all"
+                    />
+                    <button type="button" onClick={() => setShowPass((v) => !v)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-lg">
+                      {showPass ? "🙈" : "👁️"}
+                    </button>
+                  </div>
+                </div>
+
+                <button type="submit" disabled={loading}
+                        className="btn-green w-full py-3.5 rounded-xl text-white font-semibold text-sm disabled:opacity-60 disabled:cursor-not-allowed">
+                  {loading ? <Spinner label="Signing in…" /> : "Sign In →"}
                 </button>
               </form>
             </div>
           )}
 
-          {/* ── STEP 1: OTP Code ── */}
+          {/* ── STEP 1: TOTP (only reached if backend returned requires_2fa=true) ── */}
           {step === 1 && (
             <div className="slide-in">
               <button onClick={() => { setStep(0); setError(""); }}
@@ -195,55 +221,31 @@ export default function SignInPage() {
                 ← Back
               </button>
 
-              <h1 className="font-display text-3xl text-gray-900 mb-1">Enter OTP</h1>
-              <p className="text-gray-400 text-sm mb-2">
+              <h1 className="font-display text-3xl text-gray-900 mb-1">Two-factor auth</h1>
+              <p className="text-gray-400 text-sm mb-1">
                 Open your authenticator app and enter the 6-digit code for
               </p>
               <p className="text-emerald-600 font-semibold text-sm mb-8">{form.email}</p>
 
-              {error && (
-                <div className="error-shake mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm flex items-start gap-2">
-                  <span className="mt-0.5">⚠️</span><span>{error}</span>
-                </div>
-              )}
+              {error && <ErrorBox message={error} />}
 
-              {warning && (
-                <div className="mb-4 px-4 py-3 rounded-xl bg-yellow-50 border border-yellow-200 text-yellow-700 text-sm flex items-start gap-2">
-                  <span className="mt-0.5">⚠️</span><span>{warning}</span>
-                </div>
-              )}
-
-              <form onSubmit={handleOtpSubmit} className="space-y-4">
+              <form onSubmit={handleTOTPSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">6-digit OTP code</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">6-digit code</label>
                   <input
-                    type="text" name="otp_code" value={form.otp_code}
-                    onChange={handleChange} required
-                    placeholder="123456"
-                    maxLength={6}
-                    inputMode="numeric"
-                    pattern="[0-9]*"
+                    type="text" name="otp_token" value={form.otp_token}
+                    onChange={handleChange}
+                    placeholder="123456" maxLength={6}
+                    inputMode="numeric" pattern="[0-9]*"
                     className="input-focus w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-900 bg-gray-50 placeholder-gray-400 tracking-widest text-center text-lg transition-all"
                   />
                 </div>
 
                 <button type="submit" disabled={loading}
                         className="btn-green w-full py-3.5 rounded-xl text-white font-semibold text-sm disabled:opacity-60 disabled:cursor-not-allowed">
-                  {loading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Signing in…
-                    </span>
-                  ) : "Sign In →"}
+                  {loading ? <Spinner label="Verifying…" /> : "Verify & Sign In →"}
                 </button>
               </form>
-
-              <p className="text-center text-xs text-gray-400 mt-4">
-                Don't have an authenticator app set up?{" "}
-                <Link href="/account/setup-2fa" className="text-emerald-600 hover:underline font-medium">
-                  Set up 2FA
-                </Link>
-              </p>
             </div>
           )}
 
@@ -253,9 +255,49 @@ export default function SignInPage() {
             &{" "}
             <Link href="/privacy" className="text-emerald-600 hover:underline">Privacy Policy</Link>
           </p>
-
         </div>
       </div>
     </div>
+  );
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function persistSession(data) {
+  if (!data) return;
+  if (data.access)  localStorage.setItem("access",  data.access);
+  if (data.refresh) localStorage.setItem("refresh", data.refresh);
+  // Store a minimal user object — don't store tokens inside it
+  const { access, refresh, ...user } = data;
+  if (Object.keys(user).length) localStorage.setItem("user", JSON.stringify(user));
+}
+
+function extractError(err) {
+  const res = err?.response?.data;
+  if (!res) return "Network error. Please try again.";
+  const msg =
+    res?.data?.error        ||
+    res?.detail             ||
+    res?.error              ||
+    res?.non_field_errors?.[0] ||
+    Object.values(res)?.[0]?.[0];
+  return typeof msg === "string" ? msg : "Login failed. Please check your credentials.";
+}
+
+function ErrorBox({ message }) {
+  return (
+    <div className="error-shake mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm flex items-start gap-2">
+      <span className="mt-0.5">⚠️</span>
+      <span>{message}</span>
+    </div>
+  );
+}
+
+function Spinner({ label }) {
+  return (
+    <span className="flex items-center justify-center gap-2">
+      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+      {label}
+    </span>
   );
 }

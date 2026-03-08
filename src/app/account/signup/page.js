@@ -3,8 +3,19 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { register, getSocialAuthUrl } from "@/lib/api";
 
-
 const steps = ["Account", "Profile", "Done"];
+
+const strengthColors = ["bg-red-400", "bg-orange-400", "bg-yellow-400", "bg-emerald-400"];
+const strengthLabels = ["Weak", "Fair", "Good", "Strong"];
+
+function getStrengthScore(password) {
+  let score = 0;
+  if (password.length >= 8) score++;
+  if (/[A-Z]/.test(password)) score++;
+  if (/[0-9]/.test(password)) score++;
+  if (/[^A-Za-z0-9]/.test(password)) score++;
+  return score;
+}
 
 export default function SignUpPage() {
   const [step, setStep] = useState(0);
@@ -20,6 +31,8 @@ export default function SignUpPage() {
   const [errors, setErrors] = useState({});
   const [showPass, setShowPass] = useState(false);
   const [done, setDone] = useState(false);
+
+  const score = getStrengthScore(form.password);
 
   const handleChange = (e) => {
     setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
@@ -47,14 +60,11 @@ export default function SignUpPage() {
   };
 
   const handleNext = () => {
-    const errs = step === 0 ? validateStep0() : validateStep1();
-    if (Object.keys(errs).length) {
-      setErrors(errs);
-      return;
-    }
+    const errs = validateStep0();
+    if (Object.keys(errs).length) { setErrors(errs); return; }
     setStep(1);
   };
-  
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const errs = validateStep1();
@@ -64,25 +74,20 @@ export default function SignUpPage() {
     setErrors({});
 
     try {
-      const payload = {
-        email:      form.email,
-        password:   form.password,
+      await register({
+        email: form.email,
+        password: form.password,
         first_name: form.first_name,
-        last_name:  form.last_name,
-        username:   form.username,
-      };
-
-      await register(payload);
-
+        last_name: form.last_name,
+        username: form.username,
+      });
       setDone(true);
       setStep(2);
     } catch (err) {
       const res = err?.response?.data;
-
       if (res) {
         const fieldErrors = {};
         let general = "";
-
         for (const [key, val] of Object.entries(res)) {
           if (["email", "password", "username", "first_name", "last_name"].includes(key)) {
             fieldErrors[key] = Array.isArray(val) ? val[0] : val;
@@ -90,10 +95,10 @@ export default function SignUpPage() {
             general = Array.isArray(val) ? val[0] : (val?.detail || val);
           }
         }
-
         if (Object.keys(fieldErrors).length) {
           setErrors(fieldErrors);
-          if (fieldErrors.email || fieldErrors.password) setStep(0);
+          // If the error belongs to step 0 fields, go back so user can see it
+          if (fieldErrors.email || fieldErrors.password || fieldErrors.confirmPassword) setStep(0);
         } else {
           setErrors({ general: general || "Registration failed. Please try again." });
         }
@@ -109,20 +114,6 @@ export default function SignUpPage() {
     window.location.href = getSocialAuthUrl(provider);
   };
 
-  const strengthScore = () => {
-    const p = form.password;
-    let score = 0;
-    if (p.length >= 8) score++;
-    if (/[A-Z]/.test(p)) score++;
-    if (/[0-9]/.test(p)) score++;
-    if (/[^A-Za-z0-9]/.test(p)) score++;
-    return score;
-  };
-
-  const strengthColors = ["bg-red-400", "bg-orange-400", "bg-yellow-400", "bg-emerald-400"];
-  const strengthLabels = ["Weak", "Fair", "Good", "Strong"];
-  const score = strengthScore();
-
   return (
     <div className="min-h-screen flex font-sans">
 
@@ -131,25 +122,25 @@ export default function SignUpPage() {
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full bg-emerald-500/20 blur-3xl pointer-events-none" />
 
         <Link href="/" className="flex items-center gap-2 flex-shrink-0">
-            <img
-              src="/logo.svg"
-              alt="Python 9ja"
-              className="w-8 h-8 rounded-lg"
-              onError={(e) => {
-                e.target.style.display = "none";
-                e.target.nextSibling.style.display = "flex";
-              }}
-            />
-            <div
-              style={{ display: "none" }}
-              className="w-8 h-8 green-gradient rounded-lg items-center justify-center text-white font-bold text-sm"
-            >
-              Py
-            </div>
-            <span className={`font-display font-bold text-lg text-green-800 `}>
-              Python<span className="text-green-500">9ja</span>
-            </span>
-          </Link>
+          <img
+            src="/logo.svg"
+            alt="Python 9ja"
+            className="w-8 h-8 rounded-lg"
+            onError={(e) => {
+              e.target.style.display = "none";
+              e.target.nextSibling.style.display = "flex";
+            }}
+          />
+          <div
+            style={{ display: "none" }}
+            className="w-8 h-8 green-gradient rounded-lg items-center justify-center text-white font-bold text-sm"
+          >
+            Py
+          </div>
+          <span className="font-display font-bold text-lg text-green-800">
+            Python<span className="text-green-500">9ja</span>
+          </span>
+        </Link>
 
         <div className="z-10 space-y-6">
           <div className="text-5xl">🚀</div>
@@ -157,10 +148,9 @@ export default function SignUpPage() {
             Start your journey with <br />
             <span className="text-emerald-600">Nigeria's Python family</span>
           </h2>
-          <p className="text-grey-200/70 text-base leading-relaxed max-w-xs">
+          <p className="text-gray-600 text-base leading-relaxed max-w-xs">
             Join a growing community of developers, get access to job listings, tech news, projects, and mentorship.
           </p>
-
           {[
             "✅ Access to 120+ Python job listings",
             "✅ Weekly curated tech news",
@@ -179,10 +169,13 @@ export default function SignUpPage() {
       {/* ── Right: form ── */}
       <div className="flex-1 flex items-center justify-center bg-white px-6 py-12">
         <div className="w-full max-w-md fade-up">
+
           {/* Mobile logo */}
           <Link href="/" className="flex items-center gap-2 mb-8 lg:hidden">
-             <img src="/logo.svg" className="w-8 h-8 green-gradiet rouded-lg flex items-center justify-center text-white font-bold text-sm"/>
-            <span className="font-display text-lg text-gray-900">Python<span className="text-emerald-600">9ja</span></span>
+            <img src="/logo.svg" className="w-8 h-8 green-gradient rounded-lg" alt="Python 9ja" />
+            <span className="font-display text-lg text-gray-900">
+              Python<span className="text-emerald-600">9ja</span>
+            </span>
           </Link>
 
           {/* Step indicator */}
@@ -210,45 +203,54 @@ export default function SignUpPage() {
               </p>
               <p className="text-gray-400 text-sm mb-6">
                 We sent a verification email to <strong>{form.email}</strong>.
+                Please verify your email before signing in.
               </p>
 
-              {/* OTP setup notice */}
+              {/* 2FA is optional — soft nudge, not a blocker */}
               <div className="mb-8 px-4 py-4 rounded-xl bg-emerald-50 border border-emerald-200 text-left">
-                <p className="text-emerald-800 font-semibold text-sm mb-1">🔐 Set up OTP before signing in</p>
+                <p className="text-emerald-800 font-semibold text-sm mb-1">🔐 Want extra security?</p>
                 <p className="text-emerald-700 text-xs leading-relaxed">
-                  Python 9ja uses OTP-based login for extra security. You'll need to set up a
-                  TOTP authenticator app (like Google Authenticator or Authy) to sign in.
+                  You can optionally set up two-factor authentication (2FA) from your account
+                  settings after signing in. It only takes a minute and adds a strong layer of
+                  protection to your account.
                 </p>
               </div>
 
               <div className="flex flex-col gap-3">
                 <Link
-                  href="/account/setup-2fa"
+                  href="/account/signin"
                   className="btn-green inline-block px-8 py-3.5 rounded-xl text-white font-semibold text-sm"
                 >
-                  Set Up OTP Now 🔐
+                  Go to Sign In →
                 </Link>
                 <Link
-                  href="/account/signin"
+                  href="/"
                   className="text-sm text-gray-400 hover:text-emerald-600 transition-colors"
                 >
-                  Skip for now → Go to Sign In
+                  Back to home
                 </Link>
               </div>
             </div>
+
           ) : (
             <>
+              {/* ── Step 0: Account ── */}
               {step === 0 && (
                 <div className="slide-in">
                   <h1 className="font-display text-3xl text-gray-900 mb-1">Create account</h1>
                   <p className="text-gray-400 text-sm mb-6">
                     Already have an account?{" "}
-                    <Link href="/account/signin" className="text-emerald-600 font-semibold hover:underline">Sign in</Link>
+                    <Link href="/account/signin" className="text-emerald-600 font-semibold hover:underline">
+                      Sign in
+                    </Link>
                   </p>
 
-                  {/* Social */}
+                  {/* Social login */}
                   <div className="flex gap-3 mb-5">
-                    <button onClick={() => handleSocialLogin("google-oauth2")} className="social-btn flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium text-gray-700 bg-white">
+                    <button
+                      onClick={() => handleSocialLogin("google-oauth2")}
+                      className="social-btn flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium text-gray-700 bg-white"
+                    >
                       <svg className="w-4 h-4" viewBox="0 0 24 24">
                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                         <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -257,7 +259,10 @@ export default function SignUpPage() {
                       </svg>
                       Google
                     </button>
-                    <button onClick={() => handleSocialLogin("github")} className="social-btn flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium text-gray-700 bg-white">
+                    <button
+                      onClick={() => handleSocialLogin("github")}
+                      className="social-btn flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium text-gray-700 bg-white"
+                    >
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
                       </svg>
@@ -272,52 +277,70 @@ export default function SignUpPage() {
                   </div>
 
                   {errors.general && (
-                    <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">⚠️ {errors.general}</div>
+                    <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">
+                      ⚠️ {errors.general}
+                    </div>
                   )}
 
                   <div className="space-y-4">
+                    {/* Email */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Email address</label>
                       <input
-                        type="email" name="email" value={form.email} onChange={handleChange} required
+                        type="email" name="email" value={form.email} onChange={handleChange}
                         placeholder="you@example.com"
-                        className={`input-focus w-full px-4 py-3 rounded-xl border text-sm text-gray-900 bg-gray-50 placeholder-gray-400 transition-all ${errors.email ? "input-error border-red-300" : "border-gray-200"}`}
+                        className={`input-focus w-full px-4 py-3 rounded-xl border text-sm text-gray-900 bg-gray-50 placeholder-gray-400 transition-all ${
+                          errors.email ? "input-error border-red-300" : "border-gray-200"
+                        }`}
                       />
                       {errors.email && <p className="error-text">{errors.email}</p>}
                     </div>
 
+                    {/* Password */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
                       <div className="relative">
                         <input
-                          type={showPass ? "text" : "password"} name="password" value={form.password} onChange={handleChange} required
-                          placeholder="Min. 8 characters"
-                          className={`input-focus w-full px-4 py-3 rounded-xl border text-sm text-gray-900 bg-gray-50 placeholder-gray-400 pr-11 transition-all ${errors.password ? "input-error border-red-300" : "border-gray-200"}`}
+                          type={showPass ? "text" : "password"} name="password" value={form.password}
+                          onChange={handleChange} placeholder="Min. 8 characters"
+                          className={`input-focus w-full px-4 py-3 rounded-xl border text-sm text-gray-900 bg-gray-50 placeholder-gray-400 pr-11 transition-all ${
+                            errors.password ? "input-error border-red-300" : "border-gray-200"
+                          }`}
                         />
-                        <button type="button" onClick={() => setShowPass((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-lg">
+                        <button
+                          type="button" onClick={() => setShowPass((v) => !v)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-lg"
+                        >
                           {showPass ? "🙈" : "👁️"}
                         </button>
                       </div>
                       {errors.password && <p className="error-text">{errors.password}</p>}
-                      {/* Strength bar */}
+                      {/* Strength bar — only shows when user has typed something */}
                       {form.password && (
                         <div className="mt-2 space-y-1">
                           <div className="flex gap-1">
-                            {[0,1,2,3].map((i) => (
-                              <div key={i} className={`flex-1 h-1 rounded-full transition-all ${i < score ? strengthColors[score - 1] : "bg-gray-200"}`} />
+                            {[0, 1, 2, 3].map((i) => (
+                              <div key={i} className={`flex-1 h-1 rounded-full transition-all ${
+                                i < score ? strengthColors[score - 1] : "bg-gray-200"
+                              }`} />
                             ))}
                           </div>
-                          <p className="text-xs text-gray-400">{score > 0 ? strengthLabels[score - 1] : ""} password</p>
+                          <p className="text-xs text-gray-400">
+                            {score > 0 ? strengthLabels[score - 1] : ""} password
+                          </p>
                         </div>
                       )}
                     </div>
 
+                    {/* Confirm password */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Confirm password</label>
                       <input
-                        type="password" name="confirmPassword" value={form.confirmPassword} onChange={handleChange} required
-                        placeholder="Repeat password"
-                        className={`input-focus w-full px-4 py-3 rounded-xl border text-sm text-gray-900 bg-gray-50 placeholder-gray-400 transition-all ${errors.confirmPassword ? "input-error border-red-300" : "border-gray-200"}`}
+                        type="password" name="confirmPassword" value={form.confirmPassword}
+                        onChange={handleChange} placeholder="Repeat password"
+                        className={`input-focus w-full px-4 py-3 rounded-xl border text-sm text-gray-900 bg-gray-50 placeholder-gray-400 transition-all ${
+                          errors.confirmPassword ? "input-error border-red-300" : "border-gray-200"
+                        }`}
                       />
                       {errors.confirmPassword && <p className="error-text">{errors.confirmPassword}</p>}
                     </div>
@@ -329,6 +352,7 @@ export default function SignUpPage() {
                 </div>
               )}
 
+              {/* ── Step 1: Profile ── */}
               {step === 1 && (
                 <form onSubmit={handleSubmit} className="slide-in space-y-4">
                   <div>
@@ -337,23 +361,31 @@ export default function SignUpPage() {
                   </div>
 
                   {errors.general && (
-                    <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">⚠️ {errors.general}</div>
+                    <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">
+                      ⚠️ {errors.general}
+                    </div>
                   )}
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">First name</label>
                       <input
-                        type="text" name="first_name" value={form.first_name} onChange={handleChange} required placeholder="Emeka"
-                        className={`input-focus w-full px-4 py-3 rounded-xl border text-sm text-gray-900 bg-gray-50 placeholder-gray-400 transition-all ${errors.first_name ? "input-error border-red-300" : "border-gray-200"}`}
+                        type="text" name="first_name" value={form.first_name}
+                        onChange={handleChange} placeholder="Emeka"
+                        className={`input-focus w-full px-4 py-3 rounded-xl border text-sm text-gray-900 bg-gray-50 placeholder-gray-400 transition-all ${
+                          errors.first_name ? "input-error border-red-300" : "border-gray-200"
+                        }`}
                       />
                       {errors.first_name && <p className="error-text">{errors.first_name}</p>}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Last name</label>
                       <input
-                        type="text" name="last_name" value={form.last_name} onChange={handleChange} required placeholder="Okafor"
-                        className={`input-focus w-full px-4 py-3 rounded-xl border text-sm text-gray-900 bg-gray-50 placeholder-gray-400 transition-all ${errors.last_name ? "input-error border-red-300" : "border-gray-200"}`}
+                        type="text" name="last_name" value={form.last_name}
+                        onChange={handleChange} placeholder="Okafor"
+                        className={`input-focus w-full px-4 py-3 rounded-xl border text-sm text-gray-900 bg-gray-50 placeholder-gray-400 transition-all ${
+                          errors.last_name ? "input-error border-red-300" : "border-gray-200"
+                        }`}
                       />
                       {errors.last_name && <p className="error-text">{errors.last_name}</p>}
                     </div>
@@ -364,8 +396,11 @@ export default function SignUpPage() {
                     <div className="relative">
                       <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">@</span>
                       <input
-                        type="text" name="username" value={form.username} onChange={handleChange} required placeholder="emeka_py"
-                        className={`input-focus w-full pl-8 pr-4 py-3 rounded-xl border text-sm text-gray-900 bg-gray-50 placeholder-gray-400 transition-all ${errors.username ? "input-error border-red-300" : "border-gray-200"}`}
+                        type="text" name="username" value={form.username}
+                        onChange={handleChange} placeholder="emeka_py"
+                        className={`input-focus w-full pl-8 pr-4 py-3 rounded-xl border text-sm text-gray-900 bg-gray-50 placeholder-gray-400 transition-all ${
+                          errors.username ? "input-error border-red-300" : "border-gray-200"
+                        }`}
                       />
                     </div>
                     {errors.username && <p className="error-text">{errors.username}</p>}
@@ -387,9 +422,7 @@ export default function SignUpPage() {
                           <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                           Creating…
                         </span>
-                      ) : (
-                        "Create Account 🚀"
-                      )}
+                      ) : "Create Account 🚀"}
                     </button>
                   </div>
 
