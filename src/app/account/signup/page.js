@@ -118,9 +118,7 @@ export default function SignUpPage() {
 
   return (
     <div className="min-h-screen flex font-sans">
-      <pre className="bg-black text-green-400 p-4 rounded-xl text-xs overflow-x-auto whitespace-pre-wrap break-words mt-4 border border-green-800">
-  {debug}
-</pre>
+     
       {/* ── Left panel ── */}
       <div className="hidden lg:flex lg:w-5/12 panel-left pattern-dots flex-col justify-between p-12 relative overflow-hidden">
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full bg-emerald-500/20 blur-3xl pointer-events-none" />
@@ -181,7 +179,9 @@ export default function SignUpPage() {
               Python<span className="text-emerald-600">9ja</span>
             </span>
           </Link>
-
+           <pre className="bg-black text-green-400 p-4 rounded-xl text-xs overflow-x-auto whitespace-pre-wrap break-words mt-4 border border-green-800">
+  {debug}
+</pre>
           {/* Step indicator */}
           <div className="flex items-center gap-2 mb-8">
             {steps.map((s, i) => (
