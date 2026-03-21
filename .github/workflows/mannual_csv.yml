@@ -113,8 +113,8 @@ jobs:
 
           def get_issue_node_id(issue_id):
               out = gh("issue", "list", "--search", f"{issue_id} in:title",
-                       "--json", "title,nodeId", "-q",
-                       f'.[] | select(.title | startswith("{issue_id}")) | .nodeId')
+                      "--json", "title,id", "-q",
+                      f'.[] | select(.title | startswith("{issue_id}")) | .id')
               return out.strip() or None
 
           project_id = get_project_id(PROJECT_NUMBER)
@@ -152,7 +152,7 @@ jobs:
                           "--body", body,
                           "--milestone", milestone,
                           "--json", "id,number,nodeId",
-                          "-q", ".nodeId"
+                          "-q", ".id"
                       ]
                       for lbl in labels:
                           cmd += ["--label", lbl]
