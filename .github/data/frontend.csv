@@ -1,0 +1,11 @@
+id,Title,Description,Labels,Milestone
+FE-1,Build Login Page,Create login UI and integrate login API.,team/frontend;phase/1-foundation,Phase 1 — Foundation
+FE-2,Build Register Page,Create registration UI with validation.,team/frontend;phase/1-foundation,Phase 1 — Foundation
+FE-3,Implement AuthContext,Global React context storing user and JWT.,team/frontend;phase/1-foundation,Phase 1 — Foundation
+FE-4,Create ProtectedRoute,Redirect unauthenticated users.,team/frontend;phase/1-foundation,Phase 1 — Foundation
+FE-5,Build Developer Directory,Page showing developer profiles.,team/frontend;phase/2-community,Phase 2 — Community
+FE-6,Build Community Post Feed,Display list of posts.,team/frontend;phase/2-community,Phase 2 — Community
+FE-7,Create Job Listing Page,Display job listings with filters.,team/frontend;phase/3-jobs,Phase 3 — Jobs
+FE-8,Create Job Application UI,Allow users to apply to jobs.,team/frontend;phase/3-jobs,Phase 3 — Jobs
+FE-9,Create Events Page,Display upcoming events.,team/frontend;phase/4-events,Phase 4 — Events
+FE-10,Implement Notification Bell,Display unread notifications.,team/frontend;phase/5-growth,Phase 5 — Growth
