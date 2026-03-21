@@ -8,4 +8,4 @@ FE-6,Build Community Post Feed,Display list of posts.,team/frontend;phase/2-comm
 FE-7,Create Job Listing Page,Display job listings with filters.,team/frontend;phase/3-jobs,Phase 3 — Jobs
 FE-8,Create Job Application UI,Allow users to apply to jobs.,team/frontend;phase/3-jobs,Phase 3 — Jobs
 FE-9,Create Events Page,Display upcoming events.,team/frontend;phase/4-events,Phase 4 — Events
-FE-10,Implement Notification Bell,Display unread notifications.,team/frontend;phase/5-growth,Phase 5 — Growth
+FE-10,Implement Notification Bell,Display unread notifications.,team/frontend;phase/5-growth,Phase 5 — Growths
