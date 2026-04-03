@@ -37,7 +37,7 @@ api.interceptors.response.use(
 
 /** Fetch CSRF token from Django before mutating requests */
 export const getCsrfToken = async () => {
-  const res  = await api.get("/authentication/csrfToken/");
+  const res  = await api.get("/auth/csrfToken/");
   return res.data.csrfToken;
 };
 
@@ -62,7 +62,7 @@ const withCsrf = async (config = {}) => {
  */
 export const register = async (data) => {
   const config   = await withCsrf();
-  const response = await api.post("/authentication/register/", data, config);
+  const response = await api.post("/auth/register/", data, config);
   return response.data;
 };
 
@@ -73,7 +73,7 @@ export const register = async (data) => {
  */
 export const login = async (data) => {
   const config   = await withCsrf();
-  const response = await api.post("/authentication/login/", data, config);
+  const response = await api.post("/auth/login/", data, config);
   return response.data;
 };
 
@@ -89,25 +89,13 @@ export const loginJWT = async (data) => {
 };
 
 /**
- * TODO: fill in TOTP login
- * Log in with TOTP (email and OTP token)
- * POST /auth/totp-login/
- * Returns: { access, refresh }
- */
-export const loginTOTP = async (data) => {
-  const config   = await withCsrf();
-  const response = await api.post("/authentication/totp-login/", data, config);
-  return response.data;
-};
-
-/**
  * Begin email verification (resend)
  * POST /auth/verify-email/begin/
  * Body: { email }
  */
 export const verifyEmailBegin = async (data) => {
   const config   = await withCsrf();
-  const response = await api.post("/authentication/verify-email/begin/", data, config);
+  const response = await api.post("/auth/verify-email/begin/", data, config);
   return response.data;
 };
 
@@ -117,7 +105,7 @@ export const verifyEmailBegin = async (data) => {
  */
 export const verifyEmailComplete = async (token) => {
   const config   = await withCsrf();
-  const response = await api.post(`/authentication/verify-email/complete/${token}/`, {}, config);
+  const response = await api.post(`/auth/verify-email/complete/${token}/`, {}, config);
   return response.data;
 };
 
@@ -128,7 +116,7 @@ export const verifyEmailComplete = async (token) => {
  */
 export const createTOTPDevice = async (data) => {
   const config   = await withCsrf();
-  const response = await api.post("/authentication/totp-device/create/", data, config);
+  const response = await api.post("/auth/totp-device/create/", data, config);
   return response.data;
 };
 
@@ -139,7 +127,7 @@ export const createTOTPDevice = async (data) => {
  */
 export const getTOTPQRCode = async (data) => {
   const config   = await withCsrf();
-  const response = await api.post("/authentication/totp-device/qrcode/", data, {
+  const response = await api.post("/auth/totp-device/qrcode/", data, {
     ...config,
     responseType: "blob",
   });
@@ -153,7 +141,7 @@ export const getTOTPQRCode = async (data) => {
  */
 export const verifyTOTPDevice = async (data) => {
   const config   = await withCsrf();
-  const response = await api.post("/authentication/totp-device/verify/", data, config);
+  const response = await api.post("/auth/totp-device/verify/", data, config);
   return response.data;
 };
 
@@ -163,7 +151,7 @@ export const verifyTOTPDevice = async (data) => {
  * Redirect — call window.location.href directly
  */
 export const getSocialAuthUrl = (provider) =>
-  `${API_BASE_URL}/authentication/social/begin/${provider}/`;
+  `${API_BASE_URL}/auth/social/begin/${provider}/`;
 
 /**
  * Change password
@@ -172,7 +160,7 @@ export const getSocialAuthUrl = (provider) =>
  */
 export const changePassword = async (data) => {
   const config   = await withCsrf();
-  const response = await api.post("/authentication/password/change/", data, config);
+  const response = await api.post("/auth/password/change/", data, config);
   return response.data;
 };
 

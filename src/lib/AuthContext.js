@@ -29,7 +29,7 @@ export function AuthProvider({ children }) {
   const logout = () => {
     clearSession()
     setUser(null)
-    window.location.href = "/account/signin"
+    window.location.href = "/login"
   }
 
   return (
